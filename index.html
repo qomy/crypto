@@ -106,7 +106,6 @@
     const symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "DOGEUSDT"];
     const charts = {};
     const pricesHistory = {};
-    const forecastFactor = 1.02;
 
     function toggleTheme() {
       document.body.classList.toggle('light');
@@ -155,6 +154,17 @@
         lower: (sma - 2 * stdDev).toFixed(2),
         sma: sma.toFixed(2)
       };
+    }
+
+    function forecastPrice(price, rsi, macd) {
+      let factor = 1.0;
+      if (rsi < 30 && macd > 0) factor += 0.02;
+      else if (rsi > 70 && macd < 0) factor -= 0.02;
+      else if (rsi < 30) factor += 0.01;
+      else if (rsi > 70) factor -= 0.01;
+      else if (macd > 0) factor += 0.005;
+      else if (macd < 0) factor -= 0.005;
+      return (price * factor).toFixed(2);
     }
 
     function createBox(symbol) {
@@ -212,7 +222,16 @@
           const price = parseFloat(ticker.lastPrice);
           document.getElementById(symbol).textContent = price.toLocaleString();
 
-          const forecast = (price * forecastFactor).toFixed(2);
+          if (!pricesHistory[symbol]) pricesHistory[symbol] = [];
+          pricesHistory[symbol].push(price);
+          if (pricesHistory[symbol].length > 100) pricesHistory[symbol].shift();
+
+          const rsi = parseFloat(calculateRSI(pricesHistory[symbol]));
+          const macd = parseFloat(calculateMACD(pricesHistory[symbol]));
+          const sma = calculateSMA(pricesHistory[symbol]);
+          const bb = calculateBollingerBands(pricesHistory[symbol]);
+
+          const forecast = forecastPrice(price, rsi, macd);
           const forecastElem = document.getElementById("forecast_" + symbol);
           forecastElem.textContent = `1-Day Forecast: $${forecast}`;
 
@@ -221,15 +240,6 @@
           } else {
             forecastElem.classList.remove('buy-signal');
           }
-
-          if (!pricesHistory[symbol]) pricesHistory[symbol] = [];
-          pricesHistory[symbol].push(price);
-          if (pricesHistory[symbol].length > 100) pricesHistory[symbol].shift();
-
-          const rsi = calculateRSI(pricesHistory[symbol]);
-          const macd = calculateMACD(pricesHistory[symbol]);
-          const sma = calculateSMA(pricesHistory[symbol]);
-          const bb = calculateBollingerBands(pricesHistory[symbol]);
 
           const summary = document.getElementById("summary_" + symbol);
           summary.textContent = `RSI: ${rsi || '-'} | MACD: ${macd || '-'} | SMA: ${sma || '-'}`;
@@ -265,4 +275,5 @@
   </script>
 </body>
 </html>
+
 
