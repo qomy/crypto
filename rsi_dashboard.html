@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advanced Crypto Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+  <style>
+    :root {
+      --bg: #0e0e0e;
+      --box: #1b1b1b;
+      --accent: #00ffcc;
+      --blue: #00aaff;
+      --text: #ffffff;
+      --grid: #333;
+      --alert: #ff4c4c;
+    }
+    body.light {
+      --bg: #ffffff;
+      --box: #f0f0f0;
+      --accent: #007777;
+      --blue: #0077cc;
+      --text: #000000;
+      --grid: #ccc;
+      --alert: #cc0000;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 20px;
+      margin: 0;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 2em;
+      color: var(--accent);
+    }
+    .toggle-theme {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .toggle-theme button {
+      background: var(--accent);
+      border: none;
+      color: var(--text);
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+      gap: 30px;
+    }
+    .crypto-box {
+      background-color: var(--box);
+      border: 1px solid var(--grid);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 0 15px rgba(0, 255, 204, 0.1);
+    }
+    .price {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    .forecast, .summary {
+      margin-top: 10px;
+      padding: 6px;
+      background-color: var(--blue);
+      border-radius: 6px;
+      text-align: center;
+      color: white;
+    }
+    .buy-signal {
+      background-color: var(--alert) !important;
+    }
+    canvas {
+      width: 100% !important;
+      height: 300px !important;
+      background-color: var(--bg);
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 0.9em;
+      color: #888;
+    }
+  </style>
+</head>
+<body class="dark">
+  <h1>Advanced Crypto Dashboard</h1>
+  <div class="toggle-theme">
+    <button onclick="toggleTheme()">Toggle Dark/Light Mode</button>
+  </div>
+  <div class="container" id="dashboard"></div>
+  <div class="footer">Created by AOMY</div>
+
+  <script>
+    const symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "DOGEUSDT"];
+    const charts = {};
+    const pricesHistory = {};
+    const forecastFactor = 1.02;
+
+    function toggleTheme() {
+      document.body.classList.toggle('light');
+    }
+
+    function calculateRSI(prices, period = 14) {
+      if (prices.length < period) return null;
+      let gains = 0, losses = 0;
+      for (let i = prices.length - period; i < prices.length - 1; i++) {
+        let change = prices[i + 1] - prices[i];
+        if (change >= 0) gains += change;
+        else losses -= change;
+      }
+      if (losses === 0) return 100;
+      const rs = gains / losses;
+      return (100 - 100 / (1 + rs)).toFixed(2);
+    }
+
+    function calculateMACD(prices) {
+      const EMA = (data, span) => {
+        const k = 2 / (span + 1);
+        let ema = data[0];
+        for (let i = 1; i < data.length; i++) {
+          ema = data[i] * k + ema * (1 - k);
+        }
+        return ema;
+      };
+      if (prices.length < 26) return null;
+      const ema12 = EMA(prices.slice(-12), 12);
+      const ema26 = EMA(prices.slice(-26), 26);
+      return (ema12 - ema26).toFixed(2);
+    }
+
+    function calculateSMA(data, window = 20) {
+      if (data.length < window) return null;
+      return (data.slice(-window).reduce((a, b) => a + b, 0) / window).toFixed(2);
+    }
+
+    function calculateBollingerBands(data, window = 20) {
+      if (data.length < window) return null;
+      const sma = parseFloat(calculateSMA(data, window));
+      const variance = data.slice(-window).reduce((acc, val) => acc + Math.pow(val - sma, 2), 0) / window;
+      const stdDev = Math.sqrt(variance);
+      return {
+        upper: (sma + 2 * stdDev).toFixed(2),
+        lower: (sma - 2 * stdDev).toFixed(2),
+        sma: sma.toFixed(2)
+      };
+    }
+
+    function createBox(symbol) {
+      const container = document.createElement('div');
+      container.className = 'crypto-box';
+
+      container.innerHTML = `
+        <div class="price">${symbol}: $<span id="${symbol}">-</span></div>
+        <canvas id="chart_${symbol}"></canvas>
+        <div id="forecast_${symbol}" class="forecast">1-Day Forecast: $-</div>
+        <div id="summary_${symbol}" class="summary">RSI: - | MACD: - | SMA: -</div>
+      `;
+
+      document.getElementById('dashboard').appendChild(container);
+    }
+
+    function setupChart(symbol) {
+      const ctx = document.getElementById("chart_" + symbol).getContext("2d");
+      charts[symbol] = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            { label: symbol, data: [], borderColor: '#00ffcc', borderWidth: 2, pointRadius: 0, tension: 0.2, fill: false },
+            { label: 'SMA', data: [], borderColor: '#ffaa00', borderWidth: 1, borderDash: [5,5], pointRadius: 0, tension: 0.2, fill: false },
+            { label: 'Upper BB', data: [], borderColor: '#ff0000', borderWidth: 1, borderDash: [5,5], pointRadius: 0, tension: 0.2, fill: false },
+            { label: 'Lower BB', data: [], borderColor: '#0000ff', borderWidth: 1, borderDash: [5,5], pointRadius: 0, tension: 0.2, fill: false }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { ticks: { color: getComputedStyle(document.body).getPropertyValue('--text') }, grid: { color: getComputedStyle(document.body).getPropertyValue('--grid') } },
+            y: { ticks: { color: getComputedStyle(document.body).getPropertyValue('--text') }, grid: { color: getComputedStyle(document.body).getPropertyValue('--grid') } }
+          },
+          plugins: {
+            legend: { labels: { color: getComputedStyle(document.body).getPropertyValue('--text') } }
+          }
+        }
+      });
+    }
+
+    async function fetchPrices() {
+      try {
+        const url = "https://api.binance.com/api/v3/ticker/24hr";
+        const res = await fetch(url);
+        const data = await res.json();
+        const now = new Date().toLocaleTimeString();
+
+        symbols.forEach(symbol => {
+          const ticker = data.find(t => t.symbol === symbol);
+          if (!ticker) return;
+
+          const price = parseFloat(ticker.lastPrice);
+          document.getElementById(symbol).textContent = price.toLocaleString();
+
+          const forecast = (price * forecastFactor).toFixed(2);
+          const forecastElem = document.getElementById("forecast_" + symbol);
+          forecastElem.textContent = `1-Day Forecast: $${forecast}`;
+
+          if (price < forecast) {
+            forecastElem.classList.add('buy-signal');
+          } else {
+            forecastElem.classList.remove('buy-signal');
+          }
+
+          if (!pricesHistory[symbol]) pricesHistory[symbol] = [];
+          pricesHistory[symbol].push(price);
+          if (pricesHistory[symbol].length > 100) pricesHistory[symbol].shift();
+
+          const rsi = calculateRSI(pricesHistory[symbol]);
+          const macd = calculateMACD(pricesHistory[symbol]);
+          const sma = calculateSMA(pricesHistory[symbol]);
+          const bb = calculateBollingerBands(pricesHistory[symbol]);
+
+          const summary = document.getElementById("summary_" + symbol);
+          summary.textContent = `RSI: ${rsi || '-'} | MACD: ${macd || '-'} | SMA: ${sma || '-'}`;
+
+          const chart = charts[symbol];
+          if (chart) {
+            chart.data.labels.push(now);
+            chart.data.datasets[0].data.push(price);
+            chart.data.datasets[1].data.push(sma || null);
+            chart.data.datasets[2].data.push(bb ? bb.upper : null);
+            chart.data.datasets[3].data.push(bb ? bb.lower : null);
+
+            if (chart.data.labels.length > 30) {
+              chart.data.labels.shift();
+              chart.data.datasets.forEach(ds => ds.data.shift());
+            }
+            chart.update();
+          }
+        });
+      } catch (err) {
+        console.error("Error fetching price:", err);
+      }
+    }
+
+    window.onload = () => {
+      symbols.forEach(symbol => {
+        createBox(symbol);
+        setupChart(symbol);
+      });
+      fetchPrices();
+      setInterval(fetchPrices, 5000);
+    };
+  </script>
+</body>
+</html>
+
