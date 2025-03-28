@@ -1,276 +1,327 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Crypto Dashboard by AOMY</title>
+  <title>Crypto Dashboard (THB) @ AOMY </title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation"></script>
+  <script src="https://cdn.jsdelivr.net/npm/regression"></script>
+  <script>
+    if (!regression.linear && regression.default) {
+      regression = regression.default;
+    }
+  </script>
   <style>
-    :root {
-      --bg: #0e0e0e;
-      --box: #1b1b1b;
-      --accent: #00ffcc;
-      --blue: #00aaff;
-      --text: #ffffff;
-      --grid: #333;
-      --alert: #ff4c4c;
-    }
-    body.light {
-      --bg: #ffffff;
-      --box: #f0f0f0;
-      --accent: #007777;
-      --blue: #0077cc;
-      --text: #000000;
-      --grid: #ccc;
-      --alert: #cc0000;
-    }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      padding: 20px;
-      margin: 0;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 30px;
-      font-size: 2em;
-      color: var(--accent);
-    }
-    .toggle-theme {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    .toggle-theme button {
-      background: var(--accent);
-      border: none;
-      color: var(--text);
-      padding: 10px 20px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    .container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-      gap: 30px;
-    }
-    .crypto-box {
-      background-color: var(--box);
-      border: 1px solid var(--grid);
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 0 15px rgba(0, 255, 204, 0.1);
-    }
-    .price {
-      font-size: 1.5em;
-      font-weight: bold;
-      color: var(--accent);
-      margin-bottom: 10px;
-    }
-    .forecast, .summary {
-      margin-top: 10px;
-      padding: 6px;
-      background-color: var(--blue);
-      border-radius: 6px;
-      text-align: center;
-      color: white;
-    }
-    .buy-signal {
-      background-color: var(--alert) !important;
-    }
-    canvas {
-      width: 100% !important;
-      height: 300px !important;
-      background-color: var(--bg);
-      border-radius: 6px;
-      margin-top: 10px;
-    }
-    .footer {
-      text-align: center;
-      margin-top: 40px;
-      font-size: 0.9em;
-      color: #888;
-    }
+    body { background-color: #121212; color: #ffffff; font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+    h1 { text-align: center; margin-bottom: 30px; color: #00ffcc; }
+    .container { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
+    .box { background-color: #1e1e1e; border-radius: 10px; padding: 20px; box-shadow: 0 0 10px rgba(0, 255, 204, 0.2); }
+    .price { font-size: 1.3em; margin-bottom: 10px; color: #00ffcc; }
+    canvas { background-color: #222; border-radius: 8px; margin-bottom: 10px; }
+    .forecast-container { margin-top: 10px; text-align: center; }
+    .forecast { font-size: 1.1em; margin: 5px 0; }
+    .forecast-7 { color: #ff4444; }
+    .forecast-30 { color: #ffaa00; }
+    .forecast-sma { color: #00ffcc; }
+    .forecast-rsi { color: #aa00ff; }
+    .footer { margin-top: 40px; text-align: center; font-size: 0.9em; color: #999; }
+    .error { color: #ff4444; text-align: center; margin-top: 10px; }
+    .table-container { margin: 20px 0; text-align: center; }
+    table { width: 100%; max-width: 800px; margin: 0 auto; border-collapse: collapse; background-color: #1e1e1e; border-radius: 10px; overflow: hidden; }
+    th, td { padding: 10px; border: 1px solid #333; }
+    th { background-color: #00ffcc; color: #121212; }
+    td { text-align: right; }
   </style>
 </head>
-<body class="dark">
-  <h1>Advanced Crypto Dashboard</h1>
-  <div class="toggle-theme">
-    <button onclick="toggleTheme()">Toggle Dark/Light Mode</button>
+<body>
+  <h1>ราคาคริปโต (บาท)</h1>
+  <div class="table-container">
+    <table id="cryptoTable">
+      <thead>
+        <tr>
+          <th>เหรียญ</th>
+          <th>ราคาล่าสุด (฿)</th>
+          <th>SMA 50 (฿)</th>
+          <th>RSI</th>
+          <th>คาดการณ์ 7 วัน (฿)</th>
+          <th>คาดการณ์ 30 วัน (฿)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Bitcoin (BTC)</td>
+          <td id="btcTablePrice">-</td>
+          <td id="btcTableSMA">-</td>
+          <td id="btcTableRSI">-</td>
+          <td id="btcTableForecast7">-</td>
+          <td id="btcTableForecast30">-</td>
+        </tr>
+        <tr>
+          <td>Dogecoin (DOGE)</td>
+          <td id="dogeTablePrice">-</td>
+          <td id="dogeTableSMA">-</td>
+          <td id="dogeTableRSI">-</td>
+          <td id="dogeTableForecast7">-</td>
+          <td id="dogeTableForecast30">-</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
-  <div class="container" id="dashboard"></div>
-  <div class="footer">Created by AOMY</div>
+  <div class="container">
+    <div class="box">
+      <div class="price">Bitcoin (BTC): ฿<span id="btcPrice">-</span></div>
+      <canvas id="btcChart" height="300"></canvas>
+      <div class="forecast-container">
+        <div class="forecast forecast-7" id="btcForecast7">คาดการณ์ 7 วัน (LR): ฿-</div>
+        <div class="forecast forecast-30" id="btcForecast30">คาดการณ์ 30 วัน (LR): ฿-</div>
+        <div class="forecast forecast-sma" id="btcForecastSMA">SMA 50 ล่าสุด: ฿-</div>
+        <div class="forecast forecast-rsi" id="btcForecastRSI">RSI ล่าสุด: -</div>
+      </div>
+      <div class="error" id="btcError"></div>
+    </div>
+    <div class="box">
+      <div class="price">Dogecoin (DOGE): ฿<span id="dogePrice">-</span></div>
+      <canvas id="dogeChart" height="300"></canvas>
+      <div class="forecast-container">
+        <div class="forecast forecast-7" id="dogeForecast7">คาดการณ์ 7 วัน (LR): ฿-</div>
+        <div class="forecast forecast-30" id="dogeForecast30">คาดการณ์ 30 วัน (LR): ฿-</div>
+        <div class="forecast forecast-sma" id="dogeForecastSMA">SMA 50 ล่าสุด: ฿-</div>
+        <div class="forecast forecast-rsi" id="dogeForecastRSI">RSI ล่าสุด: -</div>
+      </div>
+      <div class="error" id="dogeError"></div>
+    </div>
+  </div>
+  <div class="footer">ข้อมูลจาก CoinGecko | © AOMY</div>
 
   <script>
-    const symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "DOGEUSDT"];
-    const charts = {};
-    const pricesHistory = {};
-
-    function toggleTheme() {
-      document.body.classList.toggle('light');
-    }
-
-    function calculateRSI(prices, period = 14) {
-      if (prices.length < period) return null;
-      let gains = 0, losses = 0;
-      for (let i = prices.length - period; i < prices.length - 1; i++) {
-        let change = prices[i + 1] - prices[i];
-        if (change >= 0) gains += change;
-        else losses -= change;
+    const coins = {
+      btc: { 
+        id: 'bitcoin', 
+        name: 'BTC', 
+        data: [], 
+        chartId: 'btcChart', 
+        priceId: 'btcPrice', 
+        errorId: 'btcError', 
+        forecast7Id: 'btcForecast7', 
+        forecast30Id: 'btcForecast30', 
+        forecastSMAId: 'btcForecastSMA', 
+        forecastRSIId: 'btcForecastRSI', 
+        tablePriceId: 'btcTablePrice', 
+        tableSMAId: 'btcTableSMA', 
+        tableRSIId: 'btcTableRSI', 
+        tableForecast7Id: 'btcTableForecast7', 
+        tableForecast30Id: 'btcTableForecast30', 
+        chart: null 
+      },
+      doge: { 
+        id: 'dogecoin', 
+        name: 'DOGE', 
+        data: [], 
+        chartId: 'dogeChart', 
+        priceId: 'dogePrice', 
+        errorId: 'dogeError', 
+        forecast7Id: 'dogeForecast7', 
+        forecast30Id: 'dogeForecast30', 
+        forecastSMAId: 'dogeForecastSMA', 
+        forecastRSIId: 'dogeForecastRSI', 
+        tablePriceId: 'dogeTablePrice', 
+        tableSMAId: 'dogeTableSMA', 
+        tableRSIId: 'dogeTableRSI', 
+        tableForecast7Id: 'dogeTableForecast7', 
+        tableForecast30Id: 'dogeTableForecast30', 
+        chart: null 
       }
-      if (losses === 0) return 100;
-      const rs = gains / losses;
-      return (100 - 100 / (1 + rs)).toFixed(2);
+    };
+
+    // ดึงข้อมูลย้อนหลัง 180 วัน
+    async function fetchHistoricalData(coinId) {
+      try {
+        const response = await fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=thb&days=180`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        return data.prices.map(([timestamp, price]) => ({
+          time: new Date(timestamp).toLocaleString('th-TH'),
+          price
+        }));
+      } catch (err) {
+        throw err;
+      }
     }
 
-    function calculateMACD(prices) {
-      const EMA = (data, span) => {
-        const k = 2 / (span + 1);
-        let ema = data[0];
-        for (let i = 1; i < data.length; i++) {
-          ema = data[i] * k + ema * (1 - k);
-        }
-        return ema;
-      };
-      if (prices.length < 26) return null;
-      const ema12 = EMA(prices.slice(-12), 12);
-      const ema26 = EMA(prices.slice(-26), 26);
-      return (ema12 - ema26).toFixed(2);
+    function calculateSMA(data, period = 50) {
+      const prices = data.map(d => d.price);
+      return prices.map((_, i) => {
+        if (i < period - 1) return null;
+        const slice = prices.slice(i - period + 1, i + 1);
+        return slice.reduce((a, b) => a + b, 0) / period;
+      });
     }
 
-    function calculateSMA(data, window = 20) {
-      if (data.length < window) return null;
-      return (data.slice(-window).reduce((a, b) => a + b, 0) / window).toFixed(2);
+    function calculateEMA(data, period) {
+      const prices = data.map(d => d.price);
+      const k = 2 / (period + 1);
+      let ema = [prices[0]];
+      for (let i = 1; i < prices.length; i++) {
+        ema.push(prices[i] * k + ema[i - 1] * (1 - k));
+      }
+      return ema;
     }
 
-    function calculateBollingerBands(data, window = 20) {
-      if (data.length < window) return null;
-      const sma = parseFloat(calculateSMA(data, window));
-      const variance = data.slice(-window).reduce((acc, val) => acc + Math.pow(val - sma, 2), 0) / window;
-      const stdDev = Math.sqrt(variance);
-      return {
-        upper: (sma + 2 * stdDev).toFixed(2),
-        lower: (sma - 2 * stdDev).toFixed(2),
-        sma: sma.toFixed(2)
-      };
+    function calculateMACD(data) {
+      const ema12 = calculateEMA(data, 12);
+      const ema26 = calculateEMA(data, 26);
+      const macd = ema12.map((val, i) => val - ema26[i]);
+      const signal = calculateEMA(data.slice(-macd.length).map((_, i) => ({ price: macd[i] })), 9);
+      return { macd, signal };
     }
 
-    function forecastPrice(price, rsi, macd) {
-      let factor = 1.0;
-      if (rsi < 30 && macd > 0) factor += 0.02;
-      else if (rsi > 70 && macd < 0) factor -= 0.02;
-      else if (rsi < 30) factor += 0.01;
-      else if (rsi > 70) factor -= 0.01;
-      else if (macd > 0) factor += 0.005;
-      else if (macd < 0) factor -= 0.005;
-      return (price * factor).toFixed(2);
+    function calculateRSI(data, period = 14) {
+      const prices = data.map(d => d.price);
+      const rsi = [null];
+      let gains = 0, losses = 0;
+      for (let i = 1; i < period; i++) {
+        const diff = prices[i] - prices[i - 1];
+        if (diff >= 0) gains += diff; else losses -= diff;
+      }
+      let avgGain = gains / period;
+      let avgLoss = losses / period;
+      for (let i = period; i < prices.length; i++) {
+        const diff = prices[i] - prices[i - 1];
+        avgGain = (avgGain * (period - 1) + (diff >= 0 ? diff : 0)) / period;
+        avgLoss = (avgLoss * (period - 1) + (diff < 0 ? -diff : 0)) / period;
+        rsi.push(avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss));
+      }
+      return Array(prices.length - rsi.length).fill(null).concat(rsi);
     }
 
-    function createBox(symbol) {
-      const container = document.createElement('div');
-      container.className = 'crypto-box';
-
-      container.innerHTML = `
-        <div class="price">${symbol}: $<span id="${symbol}">-</span></div>
-        <canvas id="chart_${symbol}"></canvas>
-        <div id="forecast_${symbol}" class="forecast">1-Day Forecast: $-</div>
-        <div id="summary_${symbol}" class="summary">RSI: - | MACD: - | SMA: -</div>
-      `;
-
-      document.getElementById('dashboard').appendChild(container);
+    function forecast(data, days) {
+      if (data.length < 30) return null;
+      const points = data.map((d, i) => [i, d.price]);
+      const result = regression.linear(points);
+      return result.predict(data.length + days - 1)[1];
     }
 
-    function setupChart(symbol) {
-      const ctx = document.getElementById("chart_" + symbol).getContext("2d");
-      charts[symbol] = new Chart(ctx, {
+    function setupChart(ctxId, label) {
+      const ctx = document.getElementById(ctxId).getContext('2d');
+      if (!ctx) return null;
+      return new Chart(ctx, {
         type: 'line',
         data: {
           labels: [],
           datasets: [
-            { label: symbol, data: [], borderColor: '#00ffcc', borderWidth: 2, pointRadius: 0, tension: 0.2, fill: false },
-            { label: 'SMA', data: [], borderColor: '#ffaa00', borderWidth: 1, borderDash: [5,5], pointRadius: 0, tension: 0.2, fill: false },
-            { label: 'Upper BB', data: [], borderColor: '#ff0000', borderWidth: 1, borderDash: [5,5], pointRadius: 0, tension: 0.2, fill: false },
-            { label: 'Lower BB', data: [], borderColor: '#0000ff', borderWidth: 1, borderDash: [5,5], pointRadius: 0, tension: 0.2, fill: false }
+            { label: `${label} Price`, data: [], borderColor: '#00ffcc', yAxisID: 'y', fill: false },
+            { label: 'SMA 50', data: [], borderColor: '#ffaa00', borderDash: [5, 5], yAxisID: 'y', fill: false },
+            { label: 'MACD', data: [], borderColor: '#ff4444', yAxisID: 'y1', fill: false },
+            { label: 'Signal', data: [], borderColor: '#4444ff', borderDash: [5, 5], yAxisID: 'y1', fill: false },
+            { label: 'RSI', data: [], borderColor: '#aa00ff', yAxisID: 'y2', fill: false }
           ]
         },
         options: {
           responsive: true,
-          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          stacked: false,
           scales: {
-            x: { ticks: { color: getComputedStyle(document.body).getPropertyValue('--text') }, grid: { color: getComputedStyle(document.body).getPropertyValue('--grid') } },
-            y: { ticks: { color: getComputedStyle(document.body).getPropertyValue('--text') }, grid: { color: getComputedStyle(document.body).getPropertyValue('--grid') } }
+            x: { ticks: { color: '#fff', maxTicksLimit: 20 }, grid: { color: '#333' } },
+            y: { type: 'linear', position: 'left', ticks: { color: '#00ffcc' }, grid: { color: '#333' } },
+            y1: { type: 'linear', position: 'right', ticks: { color: '#ff4444' }, grid: { drawOnChartArea: false } },
+            y2: { type: 'linear', position: 'right', ticks: { color: '#aa00ff' }, grid: { drawOnChartArea: false }, min: 0, max: 100 }
           },
-          plugins: {
-            legend: { labels: { color: getComputedStyle(document.body).getPropertyValue('--text') } }
-          }
+          plugins: { legend: { labels: { color: '#fff' } } }
         }
       });
     }
 
-    async function fetchPrices() {
+    async function fetchData() {
       try {
-        const url = "https://api.binance.com/api/v3/ticker/24hr";
-        const res = await fetch(url);
-        const data = await res.json();
-        const now = new Date().toLocaleTimeString();
+        const response = await fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=thb&ids=bitcoin,dogecoin");
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const cryptoData = await response.json();
 
-        symbols.forEach(symbol => {
-          const ticker = data.find(t => t.symbol === symbol);
-          if (!ticker) return;
+        for (const key in coins) {
+          const coin = coins[key];
+          const coinData = cryptoData.find(c => c.id === coin.id);
+          const price = coinData?.current_price;
 
-          const price = parseFloat(ticker.lastPrice);
-          document.getElementById(symbol).textContent = price.toLocaleString();
-
-          if (!pricesHistory[symbol]) pricesHistory[symbol] = [];
-          pricesHistory[symbol].push(price);
-          if (pricesHistory[symbol].length > 100) pricesHistory[symbol].shift();
-
-          const rsi = parseFloat(calculateRSI(pricesHistory[symbol]));
-          const macd = parseFloat(calculateMACD(pricesHistory[symbol]));
-          const sma = calculateSMA(pricesHistory[symbol]);
-          const bb = calculateBollingerBands(pricesHistory[symbol]);
-
-          const forecast = forecastPrice(price, rsi, macd);
-          const forecastElem = document.getElementById("forecast_" + symbol);
-          forecastElem.textContent = `1-Day Forecast: $${forecast}`;
-
-          if (price < forecast) {
-            forecastElem.classList.add('buy-signal');
-          } else {
-            forecastElem.classList.remove('buy-signal');
+          if (!price) {
+            document.getElementById(coin.errorId).textContent = `ไม่พบราคา ${coin.name}`;
+            continue;
           }
 
-          const summary = document.getElementById("summary_" + symbol);
-          summary.textContent = `RSI: ${rsi || '-'} | MACD: ${macd || '-'} | SMA: ${sma || '-'}`;
+          document.getElementById(coin.priceId).textContent = price.toLocaleString();
+          document.getElementById(coin.tablePriceId).textContent = price.toLocaleString();
+          document.getElementById(coin.errorId).textContent = '';
 
-          const chart = charts[symbol];
-          if (chart) {
-            chart.data.labels.push(now);
-            chart.data.datasets[0].data.push(price);
-            chart.data.datasets[1].data.push(sma || null);
-            chart.data.datasets[2].data.push(bb ? bb.upper : null);
-            chart.data.datasets[3].data.push(bb ? bb.lower : null);
-
-            if (chart.data.labels.length > 30) {
-              chart.data.labels.shift();
-              chart.data.datasets.forEach(ds => ds.data.shift());
-            }
-            chart.update();
+          if (coin.data.length === 0) {
+            coin.data = await fetchHistoricalData(coin.id);
+            coin.chart = setupChart(coin.chartId, coin.name);
+            coin.chart.data.labels = coin.data.map(d => d.time);
+            coin.chart.data.datasets[0].data = coin.data.map(d => d.price);
+            coin.chart.data.datasets[1].data = calculateSMA(coin.data, 50);
+            coin.chart.data.datasets[2].data = calculateMACD(coin.data).macd;
+            coin.chart.data.datasets[3].data = calculateMACD(coin.data).signal;
+            coin.chart.data.datasets[4].data = calculateRSI(coin.data);
+            coin.chart.update();
           }
-        });
+
+          const time = new Date().toLocaleString('th-TH');
+          coin.data.push({ price, time });
+          if (coin.data.length > 180) coin.data.shift();
+
+          const sma = calculateSMA(coin.data, 50);
+          const { macd, signal } = calculateMACD(coin.data);
+          const rsi = calculateRSI(coin.data);
+
+          const forecast7 = forecast(coin.data, 7);
+          const forecast30 = forecast(coin.data, 30);
+          if (forecast7) {
+            document.getElementById(coin.forecast7Id).textContent = `คาดการณ์ 7 วัน (LR): ฿${forecast7.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+            document.getElementById(coin.tableForecast7Id).textContent = forecast7.toLocaleString(undefined, { maximumFractionDigits: 2 });
+          }
+          if (forecast30) {
+            document.getElementById(coin.forecast30Id).textContent = `คาดการณ์ 30 วัน (LR): ฿${forecast30.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+            document.getElementById(coin.tableForecast30Id).textContent = forecast30.toLocaleString(undefined, { maximumFractionDigits: 2 });
+          }
+
+          const lastSMA = sma[sma.length - 1];
+          if (lastSMA) {
+            document.getElementById(coin.forecastSMAId).textContent = `SMA 50 ล่าสุด: ฿${lastSMA.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+            document.getElementById(coin.tableSMAId).textContent = lastSMA.toLocaleString(undefined, { maximumFractionDigits: 2 });
+          }
+
+          const lastRSI = rsi[rsi.length - 1];
+          if (lastRSI) {
+            let rsiTrend = '';
+            if (lastRSI > 70) rsiTrend = ' (Overbought)';
+            else if (lastRSI < 30) rsiTrend = ' (Oversold)';
+            document.getElementById(coin.forecastRSIId).textContent = `RSI ล่าสุด: ${lastRSI.toFixed(2)}${rsiTrend}`;
+            document.getElementById(coin.tableRSIId).textContent = `${lastRSI.toFixed(2)}${rsiTrend}`;
+          }
+
+          // อัปเดตกราฟแบบเรียลไทม์
+          coin.chart.data.labels = coin.data.map(d => d.time);
+          coin.chart.data.datasets[0].data = coin.data.map(d => d.price);
+          coin.chart.data.datasets[1].data = sma;
+          coin.chart.data.datasets[2].data = macd;
+          coin.chart.data.datasets[3].data = signal;
+          coin.chart.data.datasets[4].data = rsi;
+          coin.chart.update('none'); // อัปเดตโดยไม่ใช้ animation เพื่อประสิทธิภาพ
+        }
       } catch (err) {
-        console.error("Error fetching price:", err);
+        console.error("โหลดข้อมูลไม่สำเร็จ:", err);
+        document.getElementById('btcError').textContent = 'เกิดข้อผิดพลาด: ' + err.message;
+        document.getElementById('dogeError').textContent = 'เกิดข้อผิดพลาด: ' + err.message;
       }
     }
 
     window.onload = () => {
-      symbols.forEach(symbol => {
-        createBox(symbol);
-        setupChart(symbol);
-      });
-      fetchPrices();
-      setInterval(fetchPrices, 5000);
+      if (typeof Chart === 'undefined') {
+        console.error("Chart.js ไม่โหลดสำเร็จ");
+        document.getElementById('btcError').textContent = 'กรุณาตรวจสอบการเชื่อมต่อหรือโหลด Chart.js ใหม่';
+        document.getElementById('dogeError').textContent = 'กรุณาตรวจสอบการเชื่อมต่อหรือโหลด Chart.js ใหม่';
+        return;
+      }
+      fetchData();
+      setInterval(fetchData, 30000); // อัปเดตทุก 30 วินาที
     };
   </script>
 </body>
